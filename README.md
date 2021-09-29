@@ -1,4 +1,6 @@
 
+modified from https://github.com/mendsley/bsdiff.git
+
 # About
 
 memory bsdiff / bspatch lib for Lua, no compress, you can compress it by another library.
