@@ -21,7 +21,7 @@ build = {
    type = "builtin",
    modules = {
       ["bsdiff"] = {
-         sources = { "src/lua-bsdiff.c", "src/bisdiff.c", "src/bspatch.c" },
+         sources = { "src/lua-bsdiff.c", "src/bsdiff.c", "src/bspatch.c" },
          incdirs = { "src" }
       },
    }
