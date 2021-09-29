@@ -1,7 +1,7 @@
 package = 'lua-bsdiff'
 version = 'scm-1'
 source = {
-   url = 'git+https://gitee.com/lalawue/lua-bsdiff.git',
+   url = 'git+https://github.com/lalawue/lua-bsdiff.git',
 }
 description = {
    summary = 'Memory bsdiff & bspatch lib for Lua',
