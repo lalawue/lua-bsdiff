@@ -207,10 +207,6 @@ _read_cb(const struct bspatch_stream *stream, void *buffer, int size)
       memcpy(buffer, &p->buf[p->offset], len);
       size -= len;
       p->offset += len;
-      printf("%d,%d,%d\n", (int)p->offset, (int)p->len, size);
-   }
-   if (size != 0) {
-      printf(".. %d,%d,%d\n", (int)p->offset, (int)p->len, size);
    }
    return 0;
 }
