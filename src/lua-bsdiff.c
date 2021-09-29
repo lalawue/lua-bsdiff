@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 #define BUF_LEN (256 * 1024)
-#define MIN_LEN (X, Y)((X) < (Y) ? (X) : (Y))
+#define MIN_LEN(X, Y) ((X) < (Y) ? (X) : (Y))
 
 static const char *header_str = "ENDSLEY/BSDIFF43";
 
@@ -36,7 +36,7 @@ _check_type(lua_State *L, int *types, int count)
    return 1;
 }
 
-typedef struct s_buf
+struct s_buf
 {
    uint8_t buf[BUF_LEN];
    int len;
@@ -90,7 +90,7 @@ _write_cb(struct bsdiff_stream *stream, const void *buffer, int size)
    while (size > 0)
    {
       struct s_buf *b = _get_buf(stream->opaque);
-      int len = MIN_LEN(BUF_LEN - b->len, size);
+      int len = MIN_LEN((BUF_LEN - b->len), size);
       memcpy(&b->buf[b->len], buffer, len);
       b->len += len;
       size -= len;
@@ -111,8 +111,8 @@ _ldiff(lua_State *L)
 
    size_t old_sz = 0;
    size_t new_sz = 0;
-   const char *old_ptr = lua_tolstring(L, 1, &old_sz);
-   const char *new_ptr = lua_tolstring(L, 2, &new_sz);
+   const uint8_t *old_ptr = (const uint8_t *)lua_tolstring(L, 1, &old_sz);
+   const uint8_t *new_ptr = (const uint8_t *)lua_tolstring(L, 2, &new_sz);
 
    if (old_sz <= 0 && new_sz <= 0)
    {
@@ -126,15 +126,15 @@ _ldiff(lua_State *L)
    memset(&stream, 0, sizeof(stream));
 
    stream.opaque = &h;
-   stream.write = _data_cb;
+   stream.write = _write_cb;
 
    struct s_buf *b = _get_buf(&h);
 
-   memcpy(b->buf, header_str, 16)
-       b.len += 16;
+   memcpy(b->buf, header_str, 16);
+   b->len += 16;
 
-   offtout(newsize, &b.buf[b.len]);
-   b.len += 8;
+   offtout(new_sz, &b->buf[b->len]);
+   b->len += 8;
 
    if (bsdiff(old_ptr, old_sz, new_ptr, new_sz, &stream))
    {
@@ -166,7 +166,7 @@ _ldiff(lua_State *L)
       }
       free(p);
       _free_buf(&h);
-      lua_pushstring(L, p, out_sz);
+      lua_pushlstring(L, p, out_sz);
       return 1;
    }
    else
@@ -186,11 +186,12 @@ struct s_patch
 };
 
 static int
-_read_cb(struct bspatch_stream *stream, const void *buffer, int size)
+_read_cb(const struct bspatch_stream *stream, void *buffer, int size)
 {
    struct s_patch *p = (struct s_patch *)stream->opaque;
-   while (p->offset < p->len && size > 0) {
-      int len = MIN_LEN(p->len - p->offset, size);
+   while (p->offset < p->len && size > 0)
+   {
+      int len = MIN_LEN((p->len - p->offset), size);
       memcpy(buffer, &p->buf[p->offset], len);
       size -= len;
       p->offset += len;
@@ -199,7 +200,7 @@ _read_cb(struct bspatch_stream *stream, const void *buffer, int size)
 }
 
 static int
-lpatch(lua_State *L)
+_lpatch(lua_State *L)
 {
    int types[2] = {LUA_TSTRING, LUA_TSTRING};
    if (!_check_type(L, types, 2))
@@ -221,7 +222,7 @@ lpatch(lua_State *L)
       return 2;
    }
 
-   if (memcmp(patch_ptr, "ENDSLEY/BSDIFF43", 16) != 0)
+   if (memcmp(patch_ptr, header_str, 16) != 0)
    {
       lua_pushboolean(L, 0);
       lua_pushstring(L, "corrupt patch");
@@ -259,7 +260,7 @@ lpatch(lua_State *L)
       return 2;
    }
 
-   lua_pushlstring(L, new_ptr, new_sz);
+   lua_pushlstring(L, (const char *)new_ptr, new_sz);
    free(new_ptr);
    return 1;
 }
@@ -268,8 +269,7 @@ static const luaL_Reg mnet_lib[] = {
     {"diff", _ldiff},
     {"patch", _lpatch},
 
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
 LUALIB_API int
 luaopen_bsdiff(lua_State *L)
