@@ -54,13 +54,18 @@ _get_buf(struct s_head *h)
 {
    if (h->tail == NULL)
    {
-      h->head = h->tail = (struct s_buf *)malloc(sizeof(struct s_buf));
+      struct s_buf *b = (struct s_buf *)malloc(sizeof(struct s_buf));
+      b->len = 0;
+      b->next = NULL;
+      h->head = h->tail = b;
    }
    else
    {
       if (h->tail->len >= BUF_LEN)
       {
          struct s_buf *b = (struct s_buf *)malloc(sizeof(struct s_buf));
+         b->len = 0;
+         b->next = NULL;
          h->tail->next = b;
          h->tail = b;
       }
@@ -121,20 +126,26 @@ _ldiff(lua_State *L)
       return 2;
    }
 
-   struct s_head h = {NULL, NULL};
+   struct s_head h;
+   memset(&h, 0, sizeof(h));
+
    struct bsdiff_stream stream;
    memset(&stream, 0, sizeof(stream));
 
+   stream.malloc = malloc;
+   stream.free = free;
    stream.opaque = &h;
    stream.write = _write_cb;
 
-   struct s_buf *b = _get_buf(&h);
+   {
+      struct s_buf *b = _get_buf(&h);
 
-   memcpy(b->buf, header_str, 16);
-   b->len += 16;
+      memcpy(b->buf, header_str, 16);
+      b->len += 16;
 
-   offtout(new_sz, &b->buf[b->len]);
-   b->len += 8;
+      offtout(new_sz, &b->buf[b->len]);
+      b->len += 8;
+   }
 
    if (bsdiff(old_ptr, old_sz, new_ptr, new_sz, &stream))
    {
@@ -156,7 +167,7 @@ _ldiff(lua_State *L)
    if (out_sz > 0)
    {
       int len = 0;
-      char *p = (char *)malloc(out_sz);
+      char *p = (char *)malloc(out_sz + 1);
       n = h.head;
       while (n)
       {
@@ -164,9 +175,10 @@ _ldiff(lua_State *L)
          len += n->len;
          n = n->next;
       }
+
+      lua_pushlstring(L, p, out_sz);
       free(p);
       _free_buf(&h);
-      lua_pushlstring(L, p, out_sz);
       return 1;
    }
    else
@@ -195,6 +207,10 @@ _read_cb(const struct bspatch_stream *stream, void *buffer, int size)
       memcpy(buffer, &p->buf[p->offset], len);
       size -= len;
       p->offset += len;
+      printf("%d,%d,%d\n", (int)p->offset, (int)p->len, size);
+   }
+   if (size != 0) {
+      printf(".. %d,%d,%d\n", (int)p->offset, (int)p->len, size);
    }
    return 0;
 }
@@ -246,8 +262,8 @@ _lpatch(lua_State *L)
    memset(&stream, 0, sizeof(stream));
 
    h.buf = patch_ptr;
-   h.len = patch_sz - 24;
-   h.offset = 0;
+   h.len = patch_sz;
+   h.offset = 24;
 
    stream.opaque = &h;
    stream.read = _read_cb;
